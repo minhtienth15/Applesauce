@@ -1,0 +1,30 @@
+# Put this file at .github/workflows/build-trollstore-autojit.yml in YOUR FORK of
+# johnny901901901/Applesauce (branch ios-host), then run it from the Actions tab.
+# No Mac needed: GitHub's macOS runner does the build.
+name: Build TrollStore auto-JIT IPA
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ios-host
+          submodules: recursive
+      - name: Tools
+        run: |
+          brew install cmake ninja boost python ldid
+          rustup toolchain install stable
+          rustup target add aarch64-apple-ios
+      - name: Apply auto-JIT patch to oaknut
+        run: python3 patch-oaknut-jit.py   # file must be at the repo root
+      - name: Build host + cores
+        run: |
+          export TOUCHHLE_BOOST_ROOT="$(brew --prefix boost)/include"
+          sh platform/ios/scripts/build-host.sh iphoneos Release
+      - name: Package (permanent-JIT entitlements)
+        run: sh platform/ios/scripts/package-ipa.sh --trollstore-permanent-jit dist/Applesauce-autojit.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Applesauce-autojit
+          path: dist/Applesauce-autojit.ipa
